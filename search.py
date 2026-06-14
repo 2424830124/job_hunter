@@ -50,46 +50,34 @@ class JobSearcher:
 
     def _search_page(self, keyword: str, city: str, page: int) -> None:
         logger.info("搜索: %s (第%d页)", keyword, page)
-
         cookies, headers = self._browser.build_headers(
             f"https://www.zhipin.com/web/geek/job?query={keyword}"
         )
 
-        try:
-            resp = httpx.get(
-                SEARCH_API,
-                params={"query": keyword, "city": city, "page": page, "pageSize": 15},
-                cookies=cookies, headers=headers, timeout=15,
-            )
-            data = resp.json()
-
-            if data.get("code") == 37:
-                cookies = self._browser.refresh_session()
-                headers["zp_token"] = cookies.get("bst", "")
-                resp = httpx.get(
-                    SEARCH_API,
+        for attempt in range(2):
+            try:
+                resp = httpx.get(SEARCH_API,
                     params={"query": keyword, "city": city, "page": page, "pageSize": 15},
-                    cookies=cookies, headers=headers, timeout=15,
-                )
+                    cookies=cookies, headers=headers, timeout=15)
                 data = resp.json()
 
-            if data.get("code") == 1:
-                time.sleep(3)
-                resp = httpx.get(
-                    SEARCH_API,
-                    params={"query": keyword, "city": city, "page": page, "pageSize": 15},
-                    cookies=cookies, headers=headers, timeout=15,
-                )
-                data = resp.json()
+                if data.get("code") == 37:
+                    cookies = self._browser.refresh_session()
+                    headers["zp_token"] = cookies.get("bst", "")
+                    continue
 
-            job_list = data.get("zpData", {}).get("jobList", [])
-            count = 0
-            for raw in job_list:
-                job = extract_job_summary(raw)
-                if job and job.job_id and job.job_id not in self._collected:
-                    self._collected[job.job_id] = job
-                    count += 1
-            if count:
-                logger.info("新增 %d 个岗位", count)
-        except Exception as e:
-            logger.error("搜索 API 异常: %s", e)
+                job_list = data.get("zpData", {}).get("jobList", [])
+                if job_list:
+                    for raw in job_list:
+                        job = extract_job_summary(raw)
+                        if job and job.job_id and job.job_id not in self._collected:
+                            self._collected[job.job_id] = job
+                    logger.info("新增 %d 个岗位", len([j for j in job_list if j.get("encryptJobId")]))
+                    return
+                if attempt == 0:
+                    time.sleep(3)
+            except Exception as e:
+                if attempt == 0:
+                    time.sleep(3)
+                else:
+                    logger.error("搜索 API 异常: %s", e)

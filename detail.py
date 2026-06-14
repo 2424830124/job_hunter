@@ -146,39 +146,29 @@ class DetailFetcher:
         """用浏览器 cookie 直接调详情 API。"""
         cookies, headers = self._browser.build_headers("https://www.zhipin.com/web/geek/job")
 
-        try:
-            resp = httpx.get(
-                DETAIL_API,
-                params={"securityId": job.security_id or job.job_id},
-                cookies=cookies, headers=headers, timeout=15,
-            )
-            data = resp.json()
-
-            if data.get("code") == 37:
-                cookies = self._browser.refresh_session()
-                headers["zp_token"] = cookies.get("bst", "")
-                resp = httpx.get(
-                    DETAIL_API,
+        for attempt in range(2):
+            try:
+                resp = httpx.get(DETAIL_API,
                     params={"securityId": job.security_id or job.job_id},
-                    cookies=cookies, headers=headers, timeout=15,
-                )
+                    cookies=cookies, headers=headers, timeout=15)
                 data = resp.json()
 
-            if data.get("code") == 1:
-                time.sleep(3)
-                resp = httpx.get(
-                    DETAIL_API,
-                    params={"securityId": job.security_id or job.job_id},
-                    cookies=cookies, headers=headers, timeout=15,
-                )
-                data = resp.json()
+                if data.get("code") == 37:
+                    cookies = self._browser.refresh_session()
+                    headers["zp_token"] = cookies.get("bst", "")
+                    continue
 
-            detail = extract_job_detail_from_api(data, job.job_id, detail_url)
-            if detail and detail.job_description:
-                logger.debug("[API] %s @ %s", detail.job_name, detail.company_name)
-                return detail
-        except Exception as e:
-            logger.debug("API 请求失败: %s", e)
+                detail = extract_job_detail_from_api(data, job.job_id, detail_url)
+                if detail and detail.job_description:
+                    logger.debug("[API] %s @ %s", detail.job_name, detail.company_name)
+                    return detail
+                if attempt == 0:
+                    time.sleep(3)
+            except Exception as e:
+                if attempt == 0:
+                    time.sleep(3)
+                else:
+                    logger.debug("API 请求失败: %s", e)
         return None
 
     # --------------------------------------------------------

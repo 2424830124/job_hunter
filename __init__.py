@@ -210,41 +210,41 @@ class BossZhipin:
             logger.error("fetch_detail 异常: %s", exc)
             return {"error": str(exc), "id": security_id}
 
-    def contact(self, security_id: str, lid: str = "") -> bool:
-        """向招聘者打招呼（开始沟通）。
-
-        Args:
-            security_id: 安全ID（从搜索结果中获取）
-            lid:         lid 追踪参数（可选，从搜索结果中获取）
-
-        Returns:
-            bool: True 成功, False 失败。
-        """
+    def contact(self, security_id: str, lid: str = "") -> str:
+        """打招呼。返回 \"succeed\" 或失败原因。"""
         cookies, headers = self._browser.build_headers("https://www.zhipin.com/web/geek/job")
         params = {"securityId": security_id}
-        if lid:
-            params["lid"] = lid
-        try:
-            resp = httpx.get(GREET_API, params=params, cookies=cookies, headers=headers, timeout=15)
-            data = resp.json()
-            if data.get("code") == 37:
-                cookies = self._browser.refresh_session()
-                headers["zp_token"] = cookies.get("bst", "")
+        if lid: params["lid"] = lid
+
+        for attempt in range(2):  # 最多2次（首次+1次重试）
+            try:
                 resp = httpx.get(GREET_API, params=params, cookies=cookies, headers=headers, timeout=15)
                 data = resp.json()
-            if data.get("code") == 1:
-                time.sleep(3)
-                resp = httpx.get(GREET_API, params=params, cookies=cookies, headers=headers, timeout=15)
-                data = resp.json()
-            code = data.get("code")
-            if code == 0:
-                self._emit("progress", f"打招呼成功: {data.get('message', 'Success')}")
-                return True
-            self._emit("error", f"打招呼失败: {data.get('message', f'code={code}')}")
-            return False
-        except Exception as exc:
-            self._emit("error", f"打招呼异常: {exc}")
-            return False
+
+                if data.get("code") == 37:
+                    cookies = self._browser.refresh_session()
+                    headers["zp_token"] = cookies.get("bst", "")
+                    resp = httpx.get(GREET_API, params=params, cookies=cookies, headers=headers, timeout=15)
+                    data = resp.json()
+
+                code = data.get("code")
+                if code == 0:
+                    self._emit("progress", "打招呼成功")
+                    return "succeed"
+
+                msg = data.get("message", f"code={code}")
+                if attempt == 0:
+                    time.sleep(3)
+                    continue  # 重试
+                self._emit("error", f"打招呼失败: {msg}")
+                return msg
+            except Exception as exc:
+                if attempt == 0:
+                    time.sleep(3)
+                    continue
+                self._emit("error", f"打招呼异常: {exc}")
+                return str(exc)
+        return "未知错误"
 
     def get_chat_list(self) -> list[dict]:
         """获取全部会话列表。
@@ -292,15 +292,20 @@ class BossZhipin:
 
     def _get_raw_chats(self) -> list[dict]:
         tab = self._browser.tab
-        tab.listen.start("getGeekFriendList")
-        tab.get("https://www.zhipin.com/web/geek/chat")
-        packet = tab.listen.wait(timeout=10)
-        tab.listen.stop()
-        if packet:
-            body = packet.response.body
-            if isinstance(body, (str, bytes)):
-                body = json.loads(body)
-            return body.get("zpData", {}).get("result", body.get("result", []))
+        for attempt in range(2):
+            tab.listen.start("getGeekFriendList")
+            tab.get("https://www.zhipin.com/web/geek/chat")
+            packet = tab.listen.wait(timeout=10)
+            tab.listen.stop()
+            if packet:
+                body = packet.response.body
+                if isinstance(body, (str, bytes)):
+                    body = json.loads(body)
+                result = body.get("zpData", {}).get("result", body.get("result", []))
+                if result:
+                    return result
+            if attempt == 0:
+                time.sleep(3)
         return []
 
     def _my_user_id(self) -> int:
