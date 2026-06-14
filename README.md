@@ -34,8 +34,9 @@ a = BossZhipin(
     log_dir=r"./logs",                # 日志目录
 )
 
-# 1. 搜索岗位
+# 1. 搜索岗位（支持筛选）
 jobs = a.search(keyword="Python", city="杭州", count=15)
+# 带筛选: a.search(keyword="Python", city="杭州", salary="20-30K", degree="本科", experience="3-5年")
 # → {"Python工程师": {"security_id":"...", "salary":"20K-40K", ...}}
 
 # 2. 查看详情
@@ -51,6 +52,12 @@ result = a.contact(security_id=sid, lid=jobs[...].get("lid", ""))
 # 4. 会话列表
 chats = a.get_chat_list()
 # → [{"uid":123, "name":"张经理", "company":"某公司", "last_msg":"您好", ...}]
+
+# 5. 面试邀请
+interviews = a.get_interviews()
+
+# 6. 简历信息
+resume = a.get_resume()
 
 a.close()
 ```
@@ -76,9 +83,10 @@ BossZhipin(
 )
 ```
 
-### `search(keyword, city="101010100", count=15) -> dict`
+### `search(keyword, city="101010100", count=15, salary=None, experience=None, degree=None, industry=None, scale=None, stage=None, job_type=None) -> dict`
 
 关键词搜索岗位。`city` 支持中文名（如"杭州"）或数字编码。
+筛选参数支持中文名（如 `salary="20-30K"`, `experience="3-5年"`, `degree="本科"`），也支持数字编码。
 
 返回字段：`security_id`, `encrypt_id`, `degree`, `experience`, `skills`, `salary`, `city`, `company`, `size`, `financing`, `industry`, `dialogue`, `boss_name`, `boss_id`, `area_district`, `business_district`, `job_labels`, `welfare_list`
 
@@ -97,6 +105,14 @@ BossZhipin(
 获取全部会话列表。
 
 每条：`uid`, `name`, `company`, `title`, `last_msg`, `last_time`, `last_sender`("me"/"boss"), `unread`
+
+### `get_interviews() -> list[dict]`
+
+获取面试邀请列表。
+
+### `get_resume() -> dict`
+
+获取我的简历信息。返回 `{"baseinfo": {...}, "expect": {...}}`。
 
 ### `close()`
 
