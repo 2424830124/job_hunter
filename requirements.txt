@@ -1,0 +1,3 @@
+DrissionPage>=4.0
+httpx>=0.27
+scrapling>=0.4  # 可选，详情页 DOM 降级用，不装也能正常使用
