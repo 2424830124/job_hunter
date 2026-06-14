@@ -45,8 +45,8 @@ detail = a.fetch_detail(security_id=sid, encrypt_job_id=eid)
 # → {"job":"Python工程师", "detail":"岗位职责...", "skills":[...], ...}
 
 # 3. 打招呼
-a.contact(security_id=sid, lid=jobs[...].get("lid", ""))
-# → True/False
+result = a.contact(security_id=sid, lid=jobs[...].get("lid", ""))
+# → "succeed" 或失败原因（如 "开聊提醒"）
 
 # 4. 会话列表
 chats = a.get_chat_list()
@@ -88,9 +88,9 @@ BossZhipin(
 
 返回字段：`job`, `detail`(完整JD), `degree`, `experience`, `skills`, `salary`, `city`, `company`, `size`, `financing`, `industry`, `dialogue`, `boss_name`, `boss_id`, `address`, `recruitment_count`, `position_name`, `job_status`, `pay_type`
 
-### `contact(security_id, lid="") -> bool`
+### `contact(security_id, lid="") -> str`
 
-打招呼 / 开始沟通。返回 `True` 成功，`False` 失败。
+打招呼 / 开始沟通。返回 `"succeed"` 表示成功，否则返回失败原因（如 `"开聊提醒"`）。
 
 ### `get_chat_list() -> list[dict]`
 
@@ -110,7 +110,8 @@ BossZhipin(
 
 自动处理风控：
 - **code=37**：session 过期 → 自动刷新
-- **code=1**：操作频繁 → 等待 3s 重试
+- **code=1**：操作频繁 → 等待重试
+- **所有方法内置重试**：失败自动重试 1 次（等 3s）
 
 ---
 
