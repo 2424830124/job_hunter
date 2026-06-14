@@ -70,6 +70,99 @@ CITY_CODES: dict[str, str] = {
 }
 
 
+# ============================================================
+# 筛选编码字典（中文名 → API 编码）
+# ============================================================
+SALARY_CODES: dict[str, str] = {
+    "3K以下": "401",
+    "3-5K": "402",
+    "5-10K": "403",
+    "10-15K": "404",
+    "15-20K": "405",
+    "20-30K": "406",
+    "30-50K": "407",
+    "50K以上": "408",
+}
+
+EXP_CODES: dict[str, str] = {
+    "不限": "0",
+    "在校/应届": "108",
+    "应届生": "108",
+    "1年以内": "101",
+    "1-3年": "102",
+    "3-5年": "103",
+    "5-10年": "104",
+    "10年以上": "105",
+}
+
+DEGREE_CODES: dict[str, str] = {
+    "不限": "0",
+    "初中及以下": "209",
+    "中专/中技": "208",
+    "高中": "206",
+    "大专": "202",
+    "本科": "203",
+    "硕士": "204",
+    "博士": "205",
+}
+
+INDUSTRY_CODES: dict[str, str] = {
+    "不限": "0",
+    "互联网": "100020",
+    "电子商务": "100021",
+    "游戏": "100024",
+    "软件/信息服务": "100032",
+    "人工智能": "100901",
+    "大数据": "100902",
+    "云计算": "100903",
+    "区块链": "100904",
+    "物联网": "100905",
+    "金融": "100101",
+    "银行": "100102",
+    "保险": "100103",
+    "证券/基金": "100104",
+    "教育培训": "100200",
+    "医疗健康": "100300",
+    "房地产": "100400",
+    "汽车": "100500",
+    "物流/运输": "100600",
+    "广告/传媒": "100700",
+    "消费品": "100800",
+    "制造业": "101000",
+    "能源/环保": "101100",
+    "政府/非营利": "101200",
+    "农业": "101300",
+}
+
+SCALE_CODES: dict[str, str] = {
+    "不限": "0",
+    "0-20人": "301",
+    "20-99人": "302",
+    "100-499人": "303",
+    "500-999人": "304",
+    "1000-9999人": "305",
+    "10000人以上": "306",
+}
+
+STAGE_CODES: dict[str, str] = {
+    "不限": "0",
+    "未融资": "801",
+    "天使轮": "802",
+    "A轮": "803",
+    "B轮": "804",
+    "C轮": "805",
+    "D轮及以上": "806",
+    "已上市": "807",
+    "不需要融资": "808",
+}
+
+JOB_TYPE_CODES: dict[str, str] = {
+    "全职": "1901",
+    "实习": "1902",
+    "兼职": "1903",
+}
+
+
 @dataclass
 class BrowserConfig:
     """
@@ -117,6 +210,14 @@ class SearchConfig:
     city_code: str = "101010100"  # 城市编码，支持中文名
     page_start: int = 1   # unused, kept for compatibility
     page_end: int = 3     # unused, kept for compatibility
+    # 筛选参数
+    salary: str | None = None
+    experience: str | None = None
+    degree: str | None = None
+    industry: str | None = None
+    scale: str | None = None
+    stage: str | None = None
+    job_type: str | None = None
 
     def _resolve_city(self, city: str) -> str:
         """
@@ -138,30 +239,12 @@ class SearchConfig:
 
 
 @dataclass
-class RecommendationConfig:
-    """推荐岗位配置（纯 API 模式）。"""
-
-    max_pages: int = 10  # 最大翻页数
-
-
-@dataclass
 class DetailConfig:
-    """
-    详情页配置。
-
-    ``detail_interval_*`` / ``read_time_*`` / ``detail_dom_fallback_selector``
-    仅在 Scrapling 降级时使用。
-    """
+    """详情页配置。"""
 
     detail_url_template: str = "https://www.zhipin.com/job_detail/{encrypt_id}.html"
     max_retries: int = 2
-    # ── 以下字段仅在 Scrapling 降级时使用 ──
-    detail_api_keyword: str = "job/detail"
-    detail_interval_min: float = 1.0
-    detail_interval_max: float = 3.0
-    read_time_min: float = 1.0
-    read_time_max: float = 2.5
-    detail_dom_fallback_selector: str = ".job-sec-text"
+
 
 
 @dataclass
@@ -202,7 +285,6 @@ class BossConfig:
 
     browser: BrowserConfig = field(default_factory=BrowserConfig)
     search: SearchConfig = field(default_factory=SearchConfig)
-    recommendation: RecommendationConfig = field(default_factory=RecommendationConfig)
     detail: DetailConfig = field(default_factory=DetailConfig)
     human: HumanBehaviorConfig = field(default_factory=HumanBehaviorConfig)
     output: OutputConfig = field(default_factory=OutputConfig)

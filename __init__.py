@@ -28,12 +28,18 @@ from pathlib import Path
 
 import httpx
 
-from ._core.config import BOSS_CONFIG, BossConfig, CITY_CODES
+from ._core.config import (
+    BOSS_CONFIG, BossConfig, CITY_CODES,
+    SALARY_CODES, EXP_CODES, DEGREE_CODES, INDUSTRY_CODES,
+    SCALE_CODES, STAGE_CODES, JOB_TYPE_CODES,
+)
 from ._core.browser import BrowserManager
 from ._core.human import HumanSimulator
 from ._core.parsers import JobSummary, JobDetail, job_summary_to_api_dict, job_detail_to_api_dict
 from ._core.logger import setup_logger
-from ._core.constants import GREET_API
+from ._core.constants import (
+    GREET_API, INTERVIEW_DATA_URL, RESUME_BASEINFO_URL, RESUME_EXPECT_URL,
+)
 from .search import JobSearcher
 from .detail import DetailFetcher
 
@@ -45,6 +51,13 @@ __all__ = [
     "BossConfig",
     "BOSS_CONFIG",
     "CITY_CODES",
+    "SALARY_CODES",
+    "EXP_CODES",
+    "DEGREE_CODES",
+    "INDUSTRY_CODES",
+    "SCALE_CODES",
+    "STAGE_CODES",
+    "JOB_TYPE_CODES",
     "JobSummary",
     "JobDetail",
 ]
@@ -119,15 +132,48 @@ class BossZhipin:
             except Exception:
                 pass
 
+    @staticmethod
+    def _resolve_code(value: str | None, code_dict: dict[str, str]) -> str | None:
+        """将中文标签转换为 API 编码，已是编码则直接返回。"""
+        if not value:
+            return None
+        # 已是编码（纯数字）
+        if value.isdigit():
+            return value
+        # 查字典
+        if value in code_dict:
+            return code_dict[value]
+        logger.warning("未知的筛选项值: %r，未在映射表中找到", value)
+        return value
+
     # ── 公开方法 ──────────────────────────────────────────────
 
-    def search(self, keyword: str, city: str = "101010100", count: int = 15) -> dict:
+    def search(
+        self,
+        keyword: str,
+        city: str = "101010100",
+        count: int = 15,
+        salary: str | None = None,
+        experience: str | None = None,
+        degree: str | None = None,
+        industry: str | None = None,
+        scale: str | None = None,
+        stage: str | None = None,
+        job_type: str | None = None,
+    ) -> dict:
         """关键词搜索岗位。
 
         Args:
             keyword: 搜索关键词
             city:    城市编码或中文名（如 "杭州"、"101010100"），默认全国
             count:   最多返回条数
+            salary: 薪资范围（如 "20-30K", "50K以上"）
+            experience: 经验要求（如 "3-5年", "应届生"）
+            degree: 学历要求（如 "本科", "硕士"）
+            industry: 行业（如 "互联网", "金融"）
+            scale: 公司规模（如 "1000-9999人"）
+            stage: 融资阶段（如 "B轮", "已上市"）
+            job_type: 岗位类型（"全职"/"实习"/"兼职"）
 
         Returns:
             dict，以岗位名称为键::
@@ -145,7 +191,7 @@ class BossZhipin:
                         "size":             "0-20人",         # 公司规模
                         "financing":        "不需要融资",      # 融资阶段
                         "industry":         "人工智能",        # 行业
-                        "dialogue":         false,            # 是否沟通过
+                        "dialogue":         False,            # 是否沟通过
                         "boss_name":        "张经理",          # 招聘者名称
                         "boss_id":          "673235...",      # 招聘者ID
                         "area_district":    "余杭区",          # 行政区
@@ -157,6 +203,13 @@ class BossZhipin:
         """
         self._searcher._config.keywords = [keyword]
         self._searcher._config.city_code = self._config.search._resolve_city(city)
+        self._searcher._config.salary = self._resolve_code(salary, SALARY_CODES)
+        self._searcher._config.experience = self._resolve_code(experience, EXP_CODES)
+        self._searcher._config.degree = self._resolve_code(degree, DEGREE_CODES)
+        self._searcher._config.industry = self._resolve_code(industry, INDUSTRY_CODES)
+        self._searcher._config.scale = self._resolve_code(scale, SCALE_CODES)
+        self._searcher._config.stage = self._resolve_code(stage, STAGE_CODES)
+        self._searcher._config.job_type = self._resolve_code(job_type, JOB_TYPE_CODES)
         self._searcher._collected = {}
         jobs = self._searcher.run(max_jobs=count)
         result = self._jobs_to_dict(jobs[:count])
@@ -189,7 +242,7 @@ class BossZhipin:
                     "size":             "500-999人",        # 公司规模
                     "financing":        "B轮",              # 融资阶段
                     "industry":         "互联网",           # 行业
-                    "dialogue":         false,              # 是否沟通过
+                    "dialogue":         False,              # 是否沟通过
                     "boss_name":        "张经理",           # 招聘者名称
                     "boss_id":          "abc123...",        # 招聘者ID
                     "address":          "杭州余杭区",        # 工作地址
@@ -270,7 +323,7 @@ class BossZhipin:
             info = c.get("lastMessageInfo", {}) or {}
             if isinstance(info, str):
                 try: info = json.loads(info)
-                except: info = {}
+                except Exception: info = {}
             from_id = info.get("fromId", 0)
             result.append({
                 "uid": c.get("uid", 0),
@@ -282,6 +335,116 @@ class BossZhipin:
                 "last_sender": "me" if from_id == my_id else "boss",
                 "unread": from_id != my_id and my_id != 0,
             })
+        return result
+
+    def get_interviews(self) -> list[dict]:
+        """获取面试邀请列表。
+
+        Returns:
+            list[dict]，每条包含面试信息::
+
+                [
+                    {
+                        "companyName": "公司名",
+                        "positionName": "职位名",
+                        "interviewTime": "面试时间",
+                        ...
+                    },
+                    ...
+                ]
+        """
+        cookies, headers = self._browser.build_headers("https://www.zhipin.com/web/geek/interview")
+        try:
+            resp = httpx.get(
+                INTERVIEW_DATA_URL,
+                cookies=cookies,
+                headers=headers,
+                timeout=15
+            )
+            data = resp.json()
+
+            if data.get("code") == 37:
+                self._browser.refresh_session()
+                cookies, headers = self._browser.build_headers("https://www.zhipin.com/web/geek/interview")
+                resp = httpx.get(INTERVIEW_DATA_URL, cookies=cookies, headers=headers, timeout=15)
+                data = resp.json()
+
+            if data.get("code") != 0:
+                logger.warning("获取面试数据失败: %s", data.get("message", "unknown"))
+                return []
+
+            # zpData 可能是 list（直接是列表）或 dict（内含 data 字段）
+            zp_data = data.get("zpData", {})
+            if isinstance(zp_data, list):
+                return zp_data
+            return zp_data.get("data", [])
+
+        except Exception as exc:
+            logger.error("get_interviews 异常: %s", exc)
+            return []
+
+    def get_resume(self) -> dict:
+        """获取我的简历信息。
+
+        Returns:
+            dict，包含基本信息和求职期望::
+
+                {
+                    "baseinfo": {
+                        "name": "姓名",
+                        "degree": "学历",
+                        "workYears": "工作年限",
+                        ...
+                    },
+                    "expect": {
+                        "expectJobName": "期望职位",
+                        "expectSalary": "期望薪资",
+                        "expectCityName": "期望城市",
+                        ...
+                    }
+                }
+        """
+        cookies, headers = self._browser.build_headers("https://www.zhipin.com/web/geek/resume")
+        result = {"baseinfo": {}, "expect": {}}
+
+        # 获取基本信息（独立异常处理，失败不影响 expect）
+        try:
+            resp_base = httpx.get(
+                RESUME_BASEINFO_URL,
+                cookies=cookies,
+                headers=headers,
+                timeout=15
+            )
+            data_base = resp_base.json()
+            if data_base.get("code") == 37:
+                self._browser.refresh_session()
+                cookies, headers = self._browser.build_headers("https://www.zhipin.com/web/geek/resume")
+                resp_base = httpx.get(RESUME_BASEINFO_URL, cookies=cookies, headers=headers, timeout=15)
+                data_base = resp_base.json()
+            if data_base.get("code") == 0:
+                result["baseinfo"] = data_base.get("zpData", {})
+        except Exception as exc:
+            logger.error("get_resume baseinfo 异常: %s", exc)
+
+        # 获取求职期望（独立异常处理，失败不影响 baseinfo）
+        try:
+            resp_expect = httpx.get(
+                RESUME_EXPECT_URL,
+                cookies=cookies,
+                headers=headers,
+                timeout=15
+            )
+            data_expect = resp_expect.json()
+            if data_expect.get("code") == 37:
+                self._browser.refresh_session()
+                cookies, headers = self._browser.build_headers("https://www.zhipin.com/web/geek/resume")
+                resp_expect = httpx.get(RESUME_EXPECT_URL, cookies=cookies, headers=headers, timeout=15)
+                data_expect = resp_expect.json()
+            if data_expect.get("code") == 0:
+                result["expect"] = data_expect.get("zpData", {})
+        except Exception as exc:
+            logger.error("get_resume expect 异常: %s", exc)
+
         return result
 
     def close(self) -> None:

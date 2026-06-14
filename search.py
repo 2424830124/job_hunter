@@ -25,10 +25,6 @@ class JobSearcher:
         self._config = config or BOSS_CONFIG.search
         self._collected: dict[str, JobSummary] = {}
 
-    @property
-    def collected_jobs(self) -> dict[str, JobSummary]:
-        return self._collected
-
     def run(self, max_jobs: int | None = None) -> list[JobSummary]:
         logger.info("========== 开始关键词搜索 ==========")
         pages_needed = 1
@@ -54,10 +50,27 @@ class JobSearcher:
             f"https://www.zhipin.com/web/geek/job?query={keyword}"
         )
 
+        # 构建查询参数
+        params = {"query": keyword, "city": city, "page": page, "pageSize": 15}
+        
+        # 添加筛选参数
+        _filter_map = [
+            ("salary", self._config.salary),
+            ("experience", self._config.experience),
+            ("degree", self._config.degree),
+            ("industry", self._config.industry),
+            ("scale", self._config.scale),
+            ("stage", self._config.stage),
+            ("jobType", self._config.job_type),
+        ]
+        for key, val in _filter_map:
+            if val:
+                params[key] = val
+
         for attempt in range(2):
             try:
                 resp = httpx.get(SEARCH_API,
-                    params={"query": keyword, "city": city, "page": page, "pageSize": 15},
+                    params=params,
                     cookies=cookies, headers=headers, timeout=15)
                 data = resp.json()
 

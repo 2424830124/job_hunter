@@ -9,6 +9,9 @@ Boss直聘岗位抓取系统 - 共享常量模块
 SEARCH_API: str = "https://www.zhipin.com/wapi/zpgeek/search/joblist.json"
 DETAIL_API: str = "https://www.zhipin.com/wapi/zpgeek/job/detail.json"
 GREET_API: str = "https://www.zhipin.com/wapi/zpgeek/friend/add.json"
+INTERVIEW_DATA_URL: str = "https://www.zhipin.com/wapi/zpinterview/geek/interview/data.json"
+RESUME_BASEINFO_URL: str = "https://www.zhipin.com/wapi/zpgeek/resume/baseinfo/query.json"
+RESUME_EXPECT_URL: str = "https://www.zhipin.com/wapi/zpgeek/resume/expect/query.json"
 
 # ── 通用请求头（搜索/推荐/详情共用）─────────────────────────────���──────
 API_HEADERS: dict[str, str] = {

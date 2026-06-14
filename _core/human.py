@@ -15,35 +15,9 @@ import time
 
 from DrissionPage import ChromiumPage
 
-from .config import HumanBehaviorConfig, BOSS_CONFIG
+from .config import HumanBehaviorConfig
 
 logger = logging.getLogger(__name__)
-
-
-class TokenBucket:
-    """令牌桶算法（当前 API 模式未使用，保留以供未来扩展）。"""
-
-    def __init__(self, capacity: int = 1, refill_rate: float = 0.2):
-        self._capacity = capacity
-        self._refill_rate = refill_rate
-        self._tokens = float(capacity)
-        self._last_refill = time.monotonic()
-
-    def acquire(self, timeout: float = 120.0) -> bool:
-        deadline = time.monotonic() + timeout
-        while True:
-            now = time.monotonic()
-            elapsed = now - self._last_refill
-            self._tokens = min(self._capacity, self._tokens + elapsed * self._refill_rate)
-            self._last_refill = now
-            if self._tokens >= 1.0:
-                self._tokens -= 1.0
-                return True
-            remaining = deadline - now
-            if remaining <= 0:
-                return False
-            wait = min(0.5, remaining)
-            time.sleep(wait)
 
 
 class HumanSimulator:
@@ -143,11 +117,11 @@ class HumanSimulator:
         在 Scrapling 降级路径访问详情页时调用，降低访问频率。
 
         Args:
-            min_sec: 最短停留秒数，默认取 :attr:`DetailConfig.read_time_min`。
-            max_sec: 最长停留秒数，默认取 :attr:`DetailConfig.read_time_max`。
+            min_sec: 最短停留秒数，默认 1.0 秒。
+            max_sec: 最长停留秒数，默认 2.0 秒。
         """
-        lo = min_sec if min_sec is not None else BOSS_CONFIG.detail.read_time_min
-        hi = max_sec if max_sec is not None else BOSS_CONFIG.detail.read_time_max
+        lo = min_sec if min_sec is not None else 1.0
+        hi = max_sec if max_sec is not None else 2.0
         read_time = random.uniform(lo, hi)
         logger.info("模拟阅读停留 %.1f 秒", read_time)
         time.sleep(read_time)

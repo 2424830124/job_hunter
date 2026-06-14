@@ -70,41 +70,6 @@ class DetailFetcher:
         self._browser = browser
         self._human = human
         self._config = config or BOSS_CONFIG.detail
-        self._collected: dict[str, JobDetail] = {}
-        self._failed_ids: list[str] = []
-        self._consecutive_failures: int = 0
-
-    @property
-    def collected_details(self) -> dict[str, JobDetail]:
-        return self._collected
-
-    @property
-    def failed_ids(self) -> list[str]:
-        return self._failed_ids
-
-    def run(self, jobs: list[JobSummary]) -> list[JobDetail]:
-        logger.info("========== 开始详情抓取 ==========")
-        logger.info("待抓取: %d", len(jobs))
-        for idx, job in enumerate(jobs, 1):
-            if not job.job_id or job.job_id in self._collected:
-                continue
-            logger.info("[%d/%d] %s", idx, len(jobs), job.job_id)
-            result = self.fetch_one(job.job_id, security_id=job.security_id)
-            if result:
-                self._collected[job.job_id] = result
-                self._consecutive_failures = 0
-                logger.info("[OK] %s @ %s (%d/%d)", result.job_name, result.company_name, idx, len(jobs))
-            else:
-                self._failed_ids.append(job.job_id)
-                self._consecutive_failures += 1
-                logger.warning("[FAIL] %s", job.job_id)
-            if self._consecutive_failures >= 5:
-                wait = random.uniform(20.0, 40.0)
-                logger.warning("连续失败 %d 次，等待 %.0fs", self._consecutive_failures, wait)
-                time.sleep(wait)
-                self._consecutive_failures = 0
-        logger.info("详情完成: 成功 %d, 失败 %d", len(self._collected), len(self._failed_ids))
-        return list(self._collected.values())
 
     def fetch_one(self, job_id: str, security_id: str = "") -> JobDetail | None:
         job = JobSummary(job_id=job_id, security_id=security_id)

@@ -160,19 +160,6 @@ class BrowserManager:
         logger.error("[FAIL] 登录超时 (%ds), 请重新运行程序", self._config.login_wait_timeout)
         return False
 
-    def navigate_to(self, url: str, wait: float = 3.0) -> None:
-        """
-        导航到指定 URL 并等待加载。
-
-        Args:
-            url:  目标 URL。
-            wait: 导航后等待秒数（默认 3.0）。
-        """
-        logger.info("导航至: %s", url)
-        self.tab.get(url)
-        time.sleep(wait)
-        logger.debug("页面加载完成")
-
     def close(self) -> None:
         """关闭浏览器连接（不关闭浏览器进程本身，保留登录态）。"""
         if self._page:
@@ -247,7 +234,6 @@ class BrowserManager:
         for arg in self._config.arguments:
             co.set_argument(arg)
 
-        co.set_argument("--window-size=1920,1080")
 
         if self._config.headless:
             co.headless()
