@@ -126,7 +126,7 @@ class BrowserManager:
         self._page = ChromiumPage(addr_or_opts=co)
 
         # 等待浏览器完全启动
-        time.sleep(3)
+        time.sleep(5)
         logger.info("浏览器启动成功，正在注入反检测脚本...")
         self._inject_stealth_js()
         logger.info("反检测脚本注入完成")
