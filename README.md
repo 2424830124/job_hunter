@@ -46,7 +46,7 @@ detail = a.fetch_detail(security_id=sid, encrypt_job_id=eid)
 # → {"job":"Python工程师", "detail":"岗位职责...", "skills":[...], ...}
 
 # 3. 打招呼
-result = a.contact(security_id=sid, lid=jobs[...].get("lid", ""))
+result = a.contact(security_id=sid)
 # → "succeed" 或失败原因（如 "开聊提醒"）
 
 # 4. 会话列表
