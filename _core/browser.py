@@ -211,10 +211,24 @@ class BrowserManager:
         return cookies, headers
 
     def refresh_session(self) -> dict[str, str]:
-        """刷新 session（code=37 时调用），返回新 Cookie。"""
+        """
+        刷新 session（code=37 时）。如果已经登录了就刷新后返回 Cookie；
+        如果还没登录就先调用登录方法，等用户登录后再返回 Cookie。
+        """
         logger.info("code=37，刷新 session")
         self.tab.get("https://www.zhipin.com/web/geek/job")
-        time.sleep(3)
+        time.sleep(2)
+
+        # 检查是否已登录（不调用 _check_login，避免页面跳转）
+        try:
+            for cookie in self.tab.cookies():
+                if cookie.get("name") == self._config.login_cookie_name:
+                    return self.get_cookies_dict()
+        except Exception as e:
+            logger.debug("Cookie 检测异常: %s", e)
+
+        logger.info("登录失效，请重新登录")
+        self.wait_for_login()
         return self.get_cookies_dict()
 
     # --------------------------------------------------------
