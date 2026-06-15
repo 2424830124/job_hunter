@@ -1,0 +1,64 @@
+# -*- coding: utf-8 -*-
+"""Boss直聘岗位抓取 SDK - 工具函数"""
+
+import logging
+
+from .constants import CITY_CODES
+
+logger = logging.getLogger(__name__)
+
+
+def clean_text(text: str) -> str:
+    if not text:
+        return ""
+    return text.strip().split("\n")[0].strip()
+
+
+def extract_skills(raw) -> list[str]:
+    if isinstance(raw, list):
+        src = raw
+    elif isinstance(raw, dict):
+        src = raw.get("skills", raw.get("showSkills", []))
+    else:
+        return []
+    if isinstance(src, dict):
+        return []
+    if not src:
+        return []
+    skills = []
+    for item in src:
+        if isinstance(item, str):
+            skills.append(item)
+        elif isinstance(item, dict):
+            name = item.get("name", "")
+            if name:
+                skills.append(name)
+    return skills
+
+
+def build_job_url(job_id: str) -> str:
+    return f"https://www.zhipin.com/job_detail/{job_id}.html"
+
+
+def resolve_code(value: str | None, code_dict: dict[str, str]) -> str | None:
+    if not value:
+        return None
+    if value.isdigit():
+        return value
+    if value in code_dict:
+        return code_dict[value]
+    logger.warning("未知的筛选项值: %r", value)
+    return value
+
+
+def resolve_city(city: str) -> str:
+    if city.isdigit():
+        return city
+    return CITY_CODES.get(city, city)
+
+
+def make_key(job_name: str, job_id: str, seen: dict) -> str:
+    if job_name not in seen:
+        seen[job_name] = job_id
+        return job_name
+    return f"{job_name}_{job_id[-6:]}"
