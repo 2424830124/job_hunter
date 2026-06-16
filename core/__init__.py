@@ -1,30 +1,54 @@
-# -*- coding: utf-8 -*-
-"""Boss直聘岗位抓取 SDK - core 包"""
-
-from .constants import (
-    SEARCH_API, DETAIL_API, GREET_API, INTERVIEW_URL, RESUME_BASEINFO_URL, USER_INFO_URL,
-    API_HEADERS,
-    CITY_CODES, SALARY_CODES, EXP_CODES, DEGREE_CODES,
-    INDUSTRY_CODES, SCALE_CODES, STAGE_CODES, JOB_TYPE_CODES,
-)
-from .parsers import JobSummary, JobDetail, extract_job_summary, extract_job_detail
-from .browser import BrowserManager
-from .logger import setup_logger
+import logging
 from .base import BaseMixin
-from .util import (
-    clean_text, extract_skills, build_job_url,
-    resolve_code, resolve_city, make_key,
-)
+from .browser import BrowserManager
 
-__all__ = [
-    "SEARCH_API", "DETAIL_API", "GREET_API", "INTERVIEW_URL", "RESUME_BASEINFO_URL", "USER_INFO_URL",
-    "API_HEADERS",
-    "CITY_CODES", "SALARY_CODES", "EXP_CODES", "DEGREE_CODES",
-    "INDUSTRY_CODES", "SCALE_CODES", "STAGE_CODES", "JOB_TYPE_CODES",
-    "JobSummary", "JobDetail",
-    "extract_job_summary", "extract_job_detail",
-    "BrowserManager",
-    "setup_logger",
-    "clean_text", "extract_skills", "build_job_url",
-    "resolve_code", "resolve_city", "make_key",
-]
+__all__ = ["BaseMixin", "BrowserManager"]
+
+_logger = logging.getLogger(__name__)
+
+# ── BossZhipin ──────────────────────────────────────────────────
+
+from ..jobs import SearchMixin, DetailMixin
+from ..dialogue import ChatMixin, ContactMixin
+from ..personal import ResumeMixin, InterviewMixin
+
+
+class BossZhipin(
+    SearchMixin, DetailMixin,
+    ChatMixin, ContactMixin,
+    InterviewMixin, ResumeMixin,
+):
+    """Boss直聘 SDK — 自动管理浏览器登录态，统一错误处理。"""
+
+    def __init__(
+        self,
+        browser_path: str,
+        user_data_dir: str,
+        output_dir: str,
+        log_dir: str,
+        save_results: bool = True,
+        console_log: bool = True,
+        save_log: bool = True,
+        on_message: callable = None,
+    ):
+        for name, val in [
+            ("browser_path", browser_path), ("user_data_dir", user_data_dir),
+            ("output_dir", output_dir), ("log_dir", log_dir),
+        ]:
+            if not val: raise ValueError(f"{name} 为必填参数")
+
+        self._output_dir = output_dir
+        self._save_results = save_results
+        self._on_message = on_message
+
+        from ..assets.logger import setup_logger
+        setup_logger(log_dir=log_dir, console=console_log, save_log=save_log)
+
+        self._browser = BrowserManager(browser_path, user_data_dir)
+        self._browser.start()
+
+        if self._browser.verify_cookies():
+            _logger.info("登录状态有效")
+        else:
+            if not self.login():
+                raise RuntimeError("登录超时")

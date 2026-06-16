@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-"""Boss直聘岗位抓取 SDK - 数据结构与解析"""
 
 import logging
 import time
@@ -7,7 +6,7 @@ from dataclasses import dataclass, field, asdict
 
 from .util import clean_text, extract_skills, build_job_url
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -110,7 +109,7 @@ def extract_job_summary(raw: dict) -> JobSummary | None:
             raw_data=raw,
         )
     except Exception as e:
-        logger.debug("提取摘要失败: %s", e)
+        _logger.debug("提取摘要失败: %s", e)
         return None
 
 
@@ -161,5 +160,5 @@ def extract_job_detail(data: dict, job_id: str, detail_url: str) -> JobDetail | 
             raw_data=zp,
         )
     except Exception as e:
-        logger.error("详情解析失败: %s", e)
+        _logger.error("详情解析失败: %s", e)
         return None

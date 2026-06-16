@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-"""Boss直聘岗位抓取 SDK - 常量与编码映射"""
 
 # ── API 端点 ──────────────────────────────────────────────────────────
 SEARCH_API = "https://www.zhipin.com/wapi/zpgeek/search/joblist.json"
@@ -14,6 +13,7 @@ API_HEADERS = {
     "Accept": "application/json, text/plain, */*",
     "X-Requested-With": "XMLHttpRequest",
 }
+
 
 # ── 城市编码 ──────────────────────────────────────────────────────────
 CITY_CODES = {
@@ -31,19 +31,23 @@ CITY_CODES = {
     "香港": "101320100",
 }
 
+
 # ── 筛选编码 ──────────────────────────────────────────────────────────
 SALARY_CODES = {
     "3K以下": "401", "3-5K": "402", "5-10K": "403", "10-15K": "404",
     "15-20K": "405", "20-30K": "406", "30-50K": "407", "50K以上": "408",
 }
+
 EXP_CODES = {
     "不限": "0", "在校/应届": "108", "应届生": "108", "1年以内": "101",
     "1-3年": "102", "3-5年": "103", "5-10年": "104", "10年以上": "105",
 }
+
 DEGREE_CODES = {
     "不限": "0", "初中及以下": "209", "中专/中技": "208", "高中": "206",
     "大专": "202", "本科": "203", "硕士": "204", "博士": "205",
 }
+
 INDUSTRY_CODES = {
     "不限": "0", "互联网": "100020", "电子商务": "100021", "游戏": "100024",
     "软件/信息服务": "100032", "人工智能": "100901", "大数据": "100902",
@@ -53,12 +57,36 @@ INDUSTRY_CODES = {
     "物流/运输": "100600", "广告/传媒": "100700", "消费品": "100800",
     "制造业": "101000", "能源/环保": "101100", "政府/非营利": "101200", "农业": "101300",
 }
+
 SCALE_CODES = {
     "不限": "0", "0-20人": "301", "20-99人": "302", "100-499人": "303",
     "500-999人": "304", "1000-9999人": "305", "10000人以上": "306",
 }
+
 STAGE_CODES = {
     "不限": "0", "未融资": "801", "天使轮": "802", "A轮": "803", "B轮": "804",
     "C轮": "805", "D轮及以上": "806", "已上市": "807", "不需要融资": "808",
 }
+
 JOB_TYPE_CODES = {"全职": "1901", "实习": "1902", "兼职": "1903"}
+
+
+# ── JS 脚本 ──────────────────────────────────────────────────────────
+
+STEALTH_JS = r"""
+Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+if (!window.chrome) { window.chrome = { runtime: {}, loadTimes: function() {}, csi: function() {}, app: {} }; }
+const _orig_toString = Function.prototype.toString;
+Function.prototype.toString = function() {
+    if (this === Function.prototype.toString) return 'function toString() { [native code] }';
+    return _orig_toString.call(this);
+};
+const _orig_query = window.navigator.permissions?.query;
+if (_orig_query) {
+    window.navigator.permissions.query = (p) =>
+        p.name === 'notifications' ? Promise.resolve({ state: Notification.permission }) : _orig_query(p);
+}
+Object.defineProperty(navigator, 'plugins', { get: () => [1,2,3,4,5] });
+Object.defineProperty(navigator, 'languages', { get: () => ['zh-CN','zh','en-US','en'] });
+console.log('[StealthJS] injected OK');
+"""

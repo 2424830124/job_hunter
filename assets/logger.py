@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-"""Boss直聘岗位抓取 SDK - 日志配置"""
 
 import logging
 from pathlib import Path

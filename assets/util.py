@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Boss直聘岗位抓取 SDK - 工具函数"""
 
 import logging
 
 from .constants import CITY_CODES
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 
 def clean_text(text: str) -> str:
@@ -47,7 +46,7 @@ def resolve_code(value: str | None, code_dict: dict[str, str]) -> str | None:
         return value
     if value in code_dict:
         return code_dict[value]
-    logger.warning("未知的筛选项值: %r", value)
+    _logger.warning("未知的筛选项值: %r", value)
     return value
 
 
@@ -56,9 +55,3 @@ def resolve_city(city: str) -> str:
         return city
     return CITY_CODES.get(city, city)
 
-
-def make_key(job_name: str, job_id: str, seen: dict) -> str:
-    if job_name not in seen:
-        seen[job_name] = job_id
-        return job_name
-    return f"{job_name}_{job_id[-6:]}"
