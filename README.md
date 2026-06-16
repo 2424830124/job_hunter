@@ -51,7 +51,7 @@ result = a.contact(security_id=sid, lid=jobs[...].get("lid", ""))
 
 # 4. 会话列表
 chats = a.get_chat_list()
-# → [{"uid":123, "name":"张经理", "company":"某公司", "last_msg":"您好", ...}]
+# → [{"security_id":123, "name":"张经理", "company":"某公司", "last_msg":"您好", ...}]
 
 # 5. 面试邀请
 interviews = a.get_interviews()
@@ -104,7 +104,7 @@ BossZhipin(
 
 获取全部会话列表。
 
-每条：`uid`, `name`, `company`, `title`, `last_msg`, `last_time`, `last_sender`("me"/"boss"), `unread`
+每条：`security_id`, `name`, `company`, `title`, `last_msg`, `last_time`, `last_sender`("me"/"boss"), `unread`
 
 ### `get_interviews() -> list[dict]`
 
