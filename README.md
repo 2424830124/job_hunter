@@ -1,25 +1,40 @@
 # job_hunter
 
-Boss直聘岗位抓取 SDK —— 基于真实浏览器 Cookie + httpx 纯 API 调用，高速稳定。
+Boss 直聘岗位抓取 SDK。用你本机真实浏览器的登录态拿 Cookie，之后所有数据都走 httpx 直接调接口，不驱动页面渲染，比 Selenium 那一套快很多。
 
-[//]: # (> 🚀 **正在开发基于此 SDK 的全自动求职 Agent**，支持智能搜索、智能筛选、简历定制/优化、...)
+## 起因
 
-[//]: # (> 多轮对话管理等功能。关注本仓库获取 Agent 项目最新动态：)
+找工作的时候每天手动刷岗位太费时间，就想把「搜岗位 → 看 JD → 打招呼」这条链路自动化掉。写的过程中发现难点根本不在解析页面，而在登录态和风控，所以改成了现在这个结构：浏览器只负责登一次，数据全部走 API。
 
-[//]: # (> `https://github.com/2424830124/***` （开发中，Star 关注）)
+## 能做什么
 
-## ⚠️ 免责声明
+| 功能 | 说明 |
+|---|---|
+| 搜索岗位 | 关键词 + 城市，支持薪资 / 经验 / 学历 / 行业 / 规模 / 融资阶段筛选，返回结构化字段 |
+| 岗位详情 | 完整 JD、技能标签、地址、招聘人数、岗位状态等 |
+| 打招呼 | 一键开聊，返回 `succeed` 或失败原因（如「开聊提醒」） |
+| 会话列表 | 拉取全部会话，带最后一条消息、发送方、是否未回复 |
+| 面试邀请 | 面试邀请列表 |
+| 我的简历 | 拉取自己的简历信息 |
 
-**本项目仅供学习和研究使用。** 使用本工具可能违反 Boss直聘 的用户协议，可能导致账号被限制或封禁。使用者需自行承担全部风险和责任，作者不承担任何因使用本工具导致的损失。
+## 环境要求
 
-请合理控制请求频率，珍惜自己的账号。
-
----
+- Python >= 3.11
+- 本机装了 Edge（用来提供登录态，程序会接管它）
+- 目前只在 Windows 上测过
 
 ## 安装
 
 ```bash
-pip install DrissionPage httpx
+git clone https://github.com/2424830124/job_hunter.git
+cd job_hunter
+pip install -r requirements.txt
+```
+
+只要最小依赖（不装详情页 DOM 降级用的 scrapling）：
+
+```bash
+pip install -e ".[minimal]"
 ```
 
 ## 快速开始
@@ -36,35 +51,34 @@ a = BossZhipin(
 
 # 1. 搜索岗位（支持筛选）
 jobs = a.search(keyword="Python", city="杭州")
-# 带筛选: a.search(keyword="Python", city="杭州", salary="20-30K", degree="本科", experience="3-5年")
-# → [{"security_id":"...", "salary":"20K-40K", ...}]
+jobs = a.search(keyword="Python", city="杭州", salary="20-30K", degree="本科", experience="3-5年")
 
 # 2. 查看详情
-sid = jobs[0]["security_id"]
-eid = jobs[0]["encrypt_id"]
-detail = a.fetch_detail(security_id=sid, encrypt_job_id=eid)
-# → {"job":"Python工程师", "detail":"岗位职责...", "skills":[...], ...}
+detail = a.fetch_detail(security_id=jobs[0]["security_id"], encrypt_job_id=jobs[0]["encrypt_id"])
 
 # 3. 打招呼
-result = a.contact(security_id=sid)
-# → "succeed" 或失败原因（如 "开聊提醒"）
+result = a.contact(security_id=jobs[0]["security_id"])
 
-# 4. 会话列表
+# 4. 会话列表 / 面试邀请 / 简历
 chats = a.get_chat_list()
-# → [{"security_id":"...", "name":"张经理", "company":"某公司", "last_msg":"您好", ...}]
-
-# 5. 面试邀请
 interviews = a.get_interviews()
-
-# 6. 简历信息
 resume = a.get_resume()
 
 a.close()
 ```
 
-首次运行会自动打开 Edge 浏览器，登录 Boss直聘 后程序在指定目录生成浏览器用户数据目录，并自动继续。
+**第一次运行会自己弹出一个 Edge 窗口**，在窗口里正常登录 Boss 直聘，程序检测到登录成功后会自动往下走；登录态存在 `user_data_dir` 里，以后不用再登。
 
----
+## 技术上的几个取舍
+
+**为什么不用 Selenium 全程驱动页面。**
+页面上大量数据是异步渲染的，等元素、翻页、被反爬检测都会拖慢速度。这个项目只让浏览器干一件事：提供登录态 Cookie。拿到之后全部请求走 httpx 直接调接口，一次搜索请求不到一秒。
+
+**Cookie 会过期，所以做了自愈。**
+接口返回 `code=37` 表示 session 失效，代码检测到就自动刷新；如果登录彻底失效，会识别响应里的失登录关键词并触发重新登录流程，不用重启程序。
+
+**为什么用 Mixin 拆。**
+搜索/详情、聊天/打招呼、简历这三块的请求头和数据解析差别很大，塞在一个类里不好维护。按功能拆成独立模块后，加新功能只需要新增一个 Mixin。
 
 ## API
 
@@ -72,22 +86,20 @@ a.close()
 
 ```python
 BossZhipin(
-    browser_path: str,       # Edge 浏览器路径（必填）
-    user_data_dir: str,      # 浏览器用户数据目录（必填）
-    output_dir: str,         # 结果保存目录（必填）
-    log_dir: str,            # 日志目录（必填）
-    save_results: bool=True, # 是否自动保存 JSON
-    console_log: bool=True,  # 是否输出到控制台
-    save_log: bool=True,     # 是否写入日志文件
-    on_message: callable=None, # GUI 回调 (msg:dict)->None
+    browser_path: str,         # Edge 浏览器路径（必填）
+    user_data_dir: str,        # 浏览器用户数据目录（必填）
+    output_dir: str,           # 结果保存目录（必填）
+    log_dir: str,              # 日志目录（必填）
+    save_results: bool = True, # 是否自动保存 JSON
+    console_log: bool = True,  # 是否输出到控制台
+    save_log: bool = True,     # 是否写入日志文件
+    on_message: callable = None,  # GUI 回调 (msg: dict) -> None
 )
 ```
 
 ### `search(keyword, city="101010100", page=1, pagesize=15, salary=None, experience=None, degree=None, industry=None, scale=None, stage=None, job_type=None) -> list[dict] | None`
 
-关键词搜索岗位。`city` 支持中文名（如"杭州"）或数字编码。
-筛选参数支持中文名（如 `salary="20-30K"`, `experience="3-5年"`, `degree="本科"`），也支持数字编码。
-返回 `list[dict]`，失败返回 `None`。
+关键词搜索岗位。`city` 支持中文名（如「杭州」）或数字编码；筛选参数同样支持中文名（如 `salary="20-30K"`）或数字编码。失败返回 `None`。
 
 返回字段：`security_id`, `encrypt_id`, `degree`, `experience`, `skills`, `salary`, `city`, `company`, `size`, `financing`, `industry`, `dialogue`, `boss_name`, `boss_id`, `area_district`, `business_district`, `job_labels`, `welfare_list`
 
@@ -95,7 +107,7 @@ BossZhipin(
 
 查看岗位完整详情。失败返回 `None`。
 
-返回字段：`job`, `detail`(完整JD), `degree`, `experience`, `skills`, `salary`, `city`, `company`, `size`, `financing`, `industry`, `dialogue`, `boss_name`, `boss_id`, `address`, `recruitment_count`, `position_name`, `job_status`, `pay_type`
+返回字段：`job`, `detail`（完整 JD）, `degree`, `experience`, `skills`, `salary`, `city`, `company`, `size`, `financing`, `industry`, `dialogue`, `boss_name`, `boss_id`, `address`, `recruitment_count`, `position_name`, `job_status`, `pay_type`
 
 ### `contact(security_id, lid="") -> str | None`
 
@@ -103,9 +115,7 @@ BossZhipin(
 
 ### `get_chat_list() -> list[dict]`
 
-获取全部会话列表。
-
-每条：`security_id`, `name`, `company`, `title`, `last_msg`, `last_time`, `last_sender`("me"/"boss"), `unreplied`
+获取全部会话列表。每条包含：`security_id`, `name`, `company`, `title`, `last_msg`, `last_time`, `last_sender`（`"me"` / `"boss"`）, `unreplied`
 
 ### `get_interviews() -> list[dict] | None`
 
@@ -119,48 +129,37 @@ BossZhipin(
 
 断开浏览器连接。
 
----
-
-## 架构
-
-采用 Mixin 模式，各功能独立模块：
+## 项目结构
 
 ```
 job_hunter/
 ├── __init__.py        BossZhipin（组合所有 Mixin）
-├── core/
-│   ├── base.py        BaseMixin：_request/token/retry
+├── _core/
+│   ├── base.py        BaseMixin：_request / token / retry
 │   └── browser.py     BrowserManager：Edge 接管 + Cookie
 ├── jobs.py            Search + Detail
 ├── dialogue.py        Chat + Contact + Interview
 ├── personal.py        Resume
-└── assets/            常量/解析/工具
+└── assets/            常量 / 解析 / 工具
 ```
 
----
+## 这套思路还能用在哪儿
 
-## 原理
+核心方法（**真实登录态 + 纯 API 调用 + 风控自愈**）不绑定 Boss 直聘。换成其它同样结构的站点，主要改的是接口路径和字段解析：
 
-浏览器仅用于提供登录态 Cookie，所有数据通过 httpx 直接调用 Boss直聘 API。
+- 其它招聘站 / 二手交易平台的岗位、商品、订单采集
+- 带后台管理系统的 SaaS：登录一次后批量查询、批量导出
+- 需要「批量搜索 + 批量发消息」的场景（批量触达、批量回复）
+- 采集结果直接落 Excel / 数据库，替代人工逐条复制粘贴
+- 加上定时任务，做成每天自动更新的监控
 
-自动处理风控：
-- **code=37**：session 过期 → 自动刷新
-- **登录失效**：检测到失效关键词 → 自动重新登录
-- **网络异常**：内置重试机制
+有具体目标站点的话，接口和字段解析可以按需求适配。
 
----
+## 免责声明
 
-## ☕ 打赏
+本项目仅供学习和研究使用。使用本工具可能违反目标网站的用户协议，可能导致账号被限制或封禁。使用者需自行承担全部风险和责任，作者不承担任何因使用本工具导致的损失。
 
-如果这个项目帮到了你，可以请我喝杯咖啡。
-
-| 支付宝                | 微信                |
-|--------------------|-------------------|
-| ![扫码支持](assets/支付宝.jpg) | ![扫码支持](assets/微信.jpg) |
-
-> 开源不易，你的支持是我持续更新的动力 ❤️
-
----
+请合理控制请求频率，珍惜自己的账号。
 
 ## License
 
